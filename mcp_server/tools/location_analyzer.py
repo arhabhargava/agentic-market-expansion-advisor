@@ -21,43 +21,42 @@ class LocationAnalyzer:
             "parks": self.maps.nearby_search(lat, lng, radius=1800, place_type="park"),
         }
 
-        business_signals = self.maps.nearby_search(lat, lng, radius=1500, keyword="retail")
+        business_signals = self.maps.nearby_search(lat, lng, radius=1500, keyword="retail store")
         residential_signals = self.maps.nearby_search(lat, lng, radius=1500, keyword="apartment")
 
-        walkability_score = self._clamp(
-            10
-            + 7 * min(len(amenities["transit_stations"]), 10)
-            + 3 * min(len(amenities["restaurants"]), 20)
-            + 4 * min(len(amenities["grocery"]), 10)
-            + 2 * min(len(amenities["parks"]), 10),
-            0,
-            100,
+        walkability_score = int(
+            self._clamp(
+                20
+                + 5 * min(len(amenities["transit_stations"]), 10)
+                + 2 * min(len(amenities["restaurants"]), 20)
+                + 3 * min(len(amenities["grocery"]), 12)
+                + 1.5 * min(len(amenities["parks"]), 10),
+                1,
+                100,
+            )
         )
-
-        commercial_density_score = self._clamp(5 * min(len(business_signals), 20), 0, 100)
-        population_proxy_score = self._clamp(
-            50 + 2 * min(len(residential_signals), 25) + min(len(amenities["transit_stations"]), 15),
-            0,
-            100,
+        population_density = int(
+            self._clamp(
+                2000 + 180 * len(residential_signals) + 60 * len(amenities["transit_stations"]),
+                1200,
+                20000,
+            )
+        )
+        foot_traffic_score = int(
+            self._clamp(
+                (0.45 * walkability_score)
+                + (0.25 * min(len(amenities["restaurants"]) * 4, 100))
+                + (0.3 * min(len(business_signals) * 4, 100)),
+                1,
+                100,
+            )
         )
 
         return {
-            "location": location,
-            "formatted_address": geo["formatted_address"],
-            "coordinates": geo["location"],
-            "scores": {
-                "population_proxy": population_proxy_score,
-                "walkability": walkability_score,
-                "commercial_density": commercial_density_score,
-            },
-            "supporting_metrics": {
-                "transit_station_count": len(amenities["transit_stations"]),
-                "grocery_count": len(amenities["grocery"]),
-                "restaurant_count": len(amenities["restaurants"]),
-                "park_count": len(amenities["parks"]),
-                "business_count": len(business_signals),
-                "residential_count": len(residential_signals),
-            },
+            "name": location,
+            "population_density": population_density,
+            "walkability": walkability_score,
+            "foot_traffic_score": foot_traffic_score,
         }
 
     def find_competitors(self, location: str, radius: int = 2000) -> Dict[str, Any]:
@@ -81,18 +80,25 @@ class LocationAnalyzer:
                     collected[place_id] = place
 
         competitors = list(collected.values())
-        competitors.sort(key=lambda x: (x.get("rating") or 0, x.get("user_ratings_total") or 0), reverse=True)
+        competitors.sort(
+            key=lambda x: (x.get("rating") or 0, x.get("user_ratings_total") or 0),
+            reverse=True,
+        )
+        business_types = sorted(
+            {item for comp in competitors for item in comp.get("types", []) if item and item != "point_of_interest"}
+        )
+        competitor_count = len(competitors)
+        density_score = int(self._clamp((competitor_count / 25) * 100, 1, 100))
 
         return {
             "location": location,
-            "formatted_address": geo["formatted_address"],
-            "search_radius_meters": radius,
-            "competitors_found": len(competitors),
-            "top_competitors": competitors[:15],
+            "competitor_count": competitor_count,
+            "business_types": business_types[:12],
+            "density_score": density_score,
         }
 
-    def recommend_store_locations(self, city: str, budget_constraint: str) -> Dict[str, Any]:
-        neighborhoods = self.maps.fetch_neighborhoods(city, limit=10).get("neighborhoods", [])
+    def recommend_store_locations(self, city: str, budget_constraint: str = "medium") -> Dict[str, Any]:
+        neighborhoods = self.maps.fetch_neighborhoods(city).get("neighborhoods", [])
         budget_factor = self._budget_factor(budget_constraint)
 
         ranked: List[Dict[str, Any]] = []
@@ -104,35 +110,28 @@ class LocationAnalyzer:
             analysis = self.analyze_neighborhood(f"{name}, {city}")
             competition = self.find_competitors(f"{name}, {city}", radius=1500)
 
-            scores = analysis["scores"]
-            competition_penalty = min(competition["competitors_found"] * 2.2, 35)
-            market_score = (
-                0.45 * scores["population_proxy"]
-                + 0.35 * scores["walkability"]
-                + 0.2 * scores["commercial_density"]
-                - competition_penalty
+            base_score = (
+                analysis["foot_traffic_score"]
+                + analysis["walkability"]
+                - competition["density_score"]
             )
-
-            adjusted_score = round(market_score * budget_factor, 2)
+            adjusted_score = round(base_score * budget_factor, 2)
             ranked.append(
                 {
-                    "location": name,
-                    "city": city,
+                    "name": name,
                     "coordinates": neighborhood.get("location"),
                     "score": adjusted_score,
-                    "why": {
-                        "population_proxy": scores["population_proxy"],
-                        "walkability": scores["walkability"],
-                        "commercial_density": scores["commercial_density"],
-                        "competition_count": competition["competitors_found"],
-                        "budget_factor": budget_factor,
-                    },
+                    "reasoning": (
+                        f"Strong foot traffic ({analysis['foot_traffic_score']}) and walkability "
+                        f"({analysis['walkability']}) with competitor density score "
+                        f"{competition['density_score']}."
+                    ),
                 }
             )
 
         ranked.sort(key=lambda row: row["score"], reverse=True)
         return {
-            "city": city,
+            "city": city.title(),
             "budget_constraint": budget_constraint,
             "recommendations": ranked[:3],
             "evaluated_locations": len(ranked),

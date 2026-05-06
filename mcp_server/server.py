@@ -1,5 +1,4 @@
-import json
-from typing import Any, Dict, Tuple
+from typing import Any, Dict
 
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
@@ -25,36 +24,21 @@ def _error(message: str, details: Any = None) -> Dict[str, Any]:
     return payload
 
 
-def _parse_budget_payload(raw_budget_constraint: str) -> Tuple[str, str]:
-    """
-    Accepts plain budget strings ('low', 'medium', 'high') or JSON:
-    {"city":"Chicago","budget":"medium"}.
-    """
-    city = "Chicago"
-    budget = raw_budget_constraint
-    try:
-        parsed = json.loads(raw_budget_constraint)
-        if isinstance(parsed, dict):
-            city = str(parsed.get("city", city))
-            budget = str(parsed.get("budget", budget))
-    except json.JSONDecodeError:
-        pass
-    return city, budget
-
-
 @mcp.tool()
 def get_location_data(city: str) -> Dict[str, Any]:
-    """Fetch candidate neighborhoods and city center for a given city."""
+    """Return city center and predefined neighborhood coordinates."""
     try:
         data = maps_client.fetch_neighborhoods(city)
         return _ok(data)
+    except ValueError as exc:
+        return _error("Invalid or unsupported city.", str(exc))
     except Exception as exc:
         return _error("Failed to fetch location data.", str(exc))
 
 
 @mcp.tool()
 def analyze_neighborhood(location: str) -> Dict[str, Any]:
-    """Analyze a neighborhood across population proxy, walkability, and density."""
+    """Analyze population density, walkability, and foot traffic."""
     try:
         data = analyzer.analyze_neighborhood(location)
         return _ok(data)
@@ -64,7 +48,7 @@ def analyze_neighborhood(location: str) -> Dict[str, Any]:
 
 @mcp.tool()
 def find_competitors(location: str) -> Dict[str, Any]:
-    """Find nearby competing retail businesses around a location."""
+    """Find nearby retail competitors and density score."""
     try:
         data = analyzer.find_competitors(location)
         return _ok(data)
@@ -73,17 +57,13 @@ def find_competitors(location: str) -> Dict[str, Any]:
 
 
 @mcp.tool()
-def recommend_store_locations(budget_constraint: str) -> Dict[str, Any]:
-    """
-    Rank top 3 locations based on opportunity score and budget constraints.
-    `budget_constraint` accepts:
-      - plain text ('low', 'medium', 'high')
-      - JSON string: {"city":"Chicago","budget":"medium"}
-    """
+def recommend_store_locations(city: str, budget_constraint: str = "medium") -> Dict[str, Any]:
+    """Rank top 3 neighborhoods using traffic + walkability - competitor density."""
     try:
-        city, budget = _parse_budget_payload(budget_constraint)
-        data = analyzer.recommend_store_locations(city=city, budget_constraint=budget)
+        data = analyzer.recommend_store_locations(city=city, budget_constraint=budget_constraint)
         return _ok(data)
+    except ValueError as exc:
+        return _error("Invalid or unsupported city.", str(exc))
     except Exception as exc:
         return _error("Failed to recommend store locations.", str(exc))
 

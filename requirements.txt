@@ -1,0 +1,6 @@
+requests==2.31.0
+fastapi==0.104.1
+uvicorn==0.24.0
+langchain==0.0.338
+anthropic==0.7.1
+python-dotenv==1.0.0

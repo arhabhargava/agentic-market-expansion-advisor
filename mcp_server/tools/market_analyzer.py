@@ -291,6 +291,9 @@ class MarketAnalyzer:
                         "market_score": analysis["market_score"],
                         "potential_rating": analysis["potential_rating"],
                         "product_fit_analysis": analysis["product_fit_analysis"],
+                        "population": data.get("population", 0),
+                        "gdp_bn": data.get("gdp"),
+                        "region": data.get("region", ""),
                     }
                 )
             except ValueError as exc:

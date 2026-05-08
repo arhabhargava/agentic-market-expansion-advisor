@@ -425,11 +425,13 @@ export default function App() {
             {loading && <AgentLoader product={product} />}
 
             {/* Empty state */}
-            {!loading && !error && recs.length === 0 && !result && (
+            {!loading && !error && recs.length === 0 && (
               <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-xl flex flex-col items-center gap-md text-center">
                 <Icon name="public" className="text-h1 text-outline" />
                 <p className="text-body-lg text-on-surface-variant">
-                  Enter countries and click Analyze to see market recommendations.
+                  {result
+                    ? 'Analysis complete — no market data was returned. Check the Full Analysis Process below for details.'
+                    : 'Enter countries and click Analyze to see market recommendations.'}
                 </p>
               </div>
             )}

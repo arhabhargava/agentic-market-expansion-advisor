@@ -133,6 +133,16 @@ def _extract_state(messages: list) -> Dict[str, Any]:
         elif tool_name == "compare_markets":
             ranked = data.get("ranked", [])
             state["ranked"] = ranked
+            # Populate country_data so recommendation cards have population/GDP/region
+            for r in ranked:
+                cname = r.get("country")
+                if cname and cname not in state["country_data"]:
+                    state["country_data"][cname] = {
+                        "name": cname,
+                        "population": r.get("population", 0),
+                        "gdp": r.get("gdp_bn"),
+                        "region": r.get("region", ""),
+                    }
             top = ranked[0] if ranked else None
             result_summary = (
                 f"{len(ranked)} countries ranked — top: {top['country']} ({top['market_score']}/100)"

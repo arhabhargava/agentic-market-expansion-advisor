@@ -152,7 +152,7 @@ Each tool call in step 5–7 is a JSON-RPC message sent over stdin/stdout betwee
 ### 1. Clone the repo
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/arhabhargava/agentic-market-expansion-advisor.git
 cd inmarket-location-optimizer-agent
 ```
 

@@ -153,7 +153,7 @@ Each tool call in step 5–7 is a JSON-RPC message sent over stdin/stdout betwee
 
 ```bash
 git clone https://github.com/arhabhargava/agentic-market-expansion-advisor.git
-cd inmarket-location-optimizer-agent
+cd agentic-market-expansion-advisor
 ```
 
 ### 2. Create your `.env` file

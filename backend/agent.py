@@ -92,7 +92,17 @@ def _extract_state(messages: list) -> Dict[str, Any]:
         tool_name, tool_args = call_inputs.get(tool_call_id, (getattr(msg, "name", "unknown"), {}))
 
         try:
-            payload = json.loads(msg.content) if isinstance(msg.content, str) else msg.content
+            if isinstance(msg.content, list):
+                # langchain-mcp-adapters 0.2.x returns content as a list of content blocks
+                text = next(
+                    (b.get("text", "") for b in msg.content if isinstance(b, dict) and b.get("type") == "text"),
+                    "",
+                )
+                payload = json.loads(text) if text else {}
+            elif isinstance(msg.content, str):
+                payload = json.loads(msg.content)
+            else:
+                payload = msg.content if isinstance(msg.content, dict) else {}
         except (json.JSONDecodeError, TypeError):
             payload = {}
 

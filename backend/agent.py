@@ -291,26 +291,26 @@ async def recommend_markets(
             }
         }
 
-        async with MultiServerMCPClient(mcp_config) as client:
-            tools = client.get_tools()
+        client = MultiServerMCPClient(mcp_config)
+        tools = await client.get_tools()
 
-            agent = create_react_agent(llm, tools, prompt=PROMPT)
+        agent = create_react_agent(llm, tools, prompt=PROMPT)
 
-            user_input = (
-                f"Analyze these markets for product-market fit.\n\n"
-                f"Countries: {', '.join(countries)}\n"
-                f"Product: {product or 'general — use balanced scoring'}\n"
-                f"Budget tier: {budget_label}\n\n"
-                f"Approach:\n"
-                f"1. Call compare_markets with list_of_countries as a JSON array and the product "
-                f"to get ranked scores in one pass.\n"
-                f"2. Call get_country_data + analyze_market_potential on any country needing deeper detail.\n"
-                f"3. Optionally call recommend_expansion_targets(product='{product}', "
-                f"budget_constraint='{budget_label}') to surface curated global candidates.\n"
-                f"4. In your Final Answer, cite GDP figures, population sizes, and scores for each country."
-            )
+        user_input = (
+            f"Analyze these markets for product-market fit.\n\n"
+            f"Countries: {', '.join(countries)}\n"
+            f"Product: {product or 'general — use balanced scoring'}\n"
+            f"Budget tier: {budget_label}\n\n"
+            f"Approach:\n"
+            f"1. Call compare_markets with list_of_countries as a JSON array and the product "
+            f"to get ranked scores in one pass.\n"
+            f"2. Call get_country_data + analyze_market_potential on any country needing deeper detail.\n"
+            f"3. Optionally call recommend_expansion_targets(product='{product}', "
+            f"budget_constraint='{budget_label}') to surface curated global candidates.\n"
+            f"4. In your Final Answer, cite GDP figures, population sizes, and scores for each country."
+        )
 
-            result = await agent.ainvoke({"messages": [("user", user_input)]})
+        result = await agent.ainvoke({"messages": [("user", user_input)]})
 
         messages = result.get("messages", [])
         state = _extract_state(messages)
